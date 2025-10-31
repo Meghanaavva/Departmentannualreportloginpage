@@ -201,21 +201,28 @@ export function HomePage({ onLogout }: HomePageProps) {
     { id: 18, title: 'Significant Achievements / Recognitions of Faculty', icon: Trophy, color: accentColor, description: 'Faculty awards and recognition' },
     { id: 19, title: 'Significant Achievements / Recognitions of Students', icon: Trophy, color: primaryColor, description: 'Student awards and achievements' },
     { id: 20, title: 'Placements', icon: Briefcase, color: accentColor, description: 'Placement statistics' },
-    { id: 21, title: 'Outcomes (confirm label)', icon: Target, color: primaryColor, description: 'Higher studies and outcomes' },
-    { id: 22, title: 'Result analysis', icon: BarChart3, color: accentColor, description: 'Semester-wise results' },
-    { id: 23, title: 'Steps to improve Academic Performance of Students', icon: TrendingUp, color: primaryColor, description: 'Student improvement strategies' },
-    { id: 24, title: 'Steps to improve Faculty Engagement / Research Projects / External Funding', icon: Users, color: accentColor, description: 'Faculty development initiatives' }
+    { id: 21, title: 'Outcomes (confirm label)', icon: Target, color: primaryColor, description: 'Higher studies and outcomes' }
   ];
 
   // State for all data sections with year-wise data
   const [allYearData, setAllYearData] = useState<YearFilteredData>({
     '2024-25': {
-      faculty: [],
+      faculty: [
+        { designation: 'Distinguished Professor', count: 1, phd: 1, experience: '25+ years' },
+        { designation: 'Professor', count: 18, phd: 18, experience: '20+ years' },
+        { designation: 'Associate Professor', count: 32, phd: 28, experience: '15+ years' },
+        { designation: 'Assistant Professor', count: 108, phd: 95, experience: '5-10 years' }
+      ],
       students: [],
       placements: []
     },
     '2023-24': {
-      faculty: [],
+      faculty: [
+        { designation: 'Distinguished Professor', count: 1, phd: 1, experience: '25+ years' },
+        { designation: 'Professor', count: 18, phd: 18, experience: '20+ years' },
+        { designation: 'Associate Professor', count: 32, phd: 28, experience: '15+ years' },
+        { designation: 'Assistant Professor', count: 108, phd: 95, experience: '5-10 years' }
+      ],
       students: [],
       placements: []
     },
