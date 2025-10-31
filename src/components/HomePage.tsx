@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner@2.0.3';
 import jsPDF from 'jspdf';
+import * as XLSX from 'xlsx';
 import { 
   LogOut,
   Search,
@@ -669,9 +670,34 @@ export function HomePage({ onLogout }: HomePageProps) {
       sectionTitle = 'Placement Data';
     }
 
-    // Generate both CSV and PDF
+    if (data.length === 0) {
+      toast.error('No data available to export for this year.');
+      return;
+    }
+
+    // Generate Excel, CSV, and PDF
     
-    // CSV Export
+    // Excel Export
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(data);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, sectionTitle);
+      
+      // Add metadata
+      if (!workbook.Props) workbook.Props = {};
+      workbook.Props.Title = `${sectionTitle} - ${currentYear}`;
+      workbook.Props.Subject = `GITAM Annual Report ${currentYear}`;
+      workbook.Props.Author = 'GITAM Department of CSE';
+      workbook.Props.CreatedDate = new Date();
+      
+      XLSX.writeFile(workbook, `${filename}.xlsx`);
+      toast.success(`${sectionTitle} for Academic Year ${currentYear} exported as Excel!`);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      toast.error('Excel export failed. Falling back to CSV.');
+    }
+    
+    // CSV Export (as backup)
     const csvContent = convertToCSV(data);
     const csvBlob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const csvLink = document.createElement('a');
@@ -685,7 +711,6 @@ export function HomePage({ onLogout }: HomePageProps) {
       generatePDF(pdfContent, `${filename}.pdf`);
     }, 500);
     
-    toast.success(`${sectionTitle} exported as CSV and PDF successfully!`);
   }, [getCurrentSectionYear, getSectionData, convertToCSV, generatePDF, generateSectionPDFContent]);
 
   // Master Export Function - Download ALL Data as PDF
@@ -758,7 +783,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           masterContent += `• ${placement.company}: ${placement.studentsPlaced} students @ ${placement.package} (${placement.type})\n`;
         });
         masterContent += `\nTotal Students Placed: ${placementDataForYear.reduce((sum, p) => sum + p.studentsPlaced, 0)}\n`;
-        const packages = placementDataForYear.map(p => parseInt(p.package.replace(' LPA', '')) || 0);
+        const packages = placementDataForYear.map(p => parseInt(String(p.package || '0').replace(' LPA', '')) || 0);
         if (packages.length > 0) {
           masterContent += `Highest Package: ${Math.max(...packages)} LPA\n`;
           masterContent += `Average Package: ${(packages.reduce((sum, p) => sum + p, 0) / packages.length).toFixed(2)} LPA\n\n`;
@@ -895,7 +920,7 @@ export function HomePage({ onLogout }: HomePageProps) {
     const placementData = yearData?.placements || [];
     if (placementData.length > 0) {
       const totalPlaced = placementData.reduce((sum, p) => sum + p.studentsPlaced, 0);
-      const packages = placementData.map(p => parseInt(p.package.replace(' LPA', '')) || 0);
+      const packages = placementData.map(p => parseInt(String(p.package || '0').replace(' LPA', '')) || 0);
       const avgPackage = packages.length > 0 ? (packages.reduce((sum, p) => sum + p, 0) / packages.length).toFixed(2) : 0;
       const maxPackage = packages.length > 0 ? Math.max(...packages) : 0;
       reportContent += `Students Placed: ${totalPlaced}\n`;
@@ -1229,46 +1254,79 @@ export function HomePage({ onLogout }: HomePageProps) {
       lastModified: new Date(file.lastModified)
     };
 
+    const fileName = file.name.toLowerCase();
+    
+    // Check if it's an Excel file
+    const isExcelFile = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const text = e.target?.result as string;
-        fileInfo.content = text;
+        const result = e.target?.result;
+        if (!result) return;
+        
+        // Determine file format and parse accordingly
+        let parsedData: any[] = [];
+        
+        if (isExcelFile) {
+          // Parse Excel file
+          try {
+            toast.info('Parsing Excel file...');
+            const data = new Uint8Array(result as ArrayBuffer);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            // Get the first sheet
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convert to JSON
+            parsedData = XLSX.utils.sheet_to_json(worksheet);
+            
+            // Store as text for file viewer
+            fileInfo.content = JSON.stringify(parsedData, null, 2);
+            
+            toast.success(`Excel file parsed: ${parsedData.length} rows found`);
+          } catch (error) {
+            console.error('Excel parsing error:', error);
+            toast.error('Failed to parse Excel file. Please check the file format.');
+            return;
+          }
+        } else {
+          // For text-based files
+          const text = result as string;
+          fileInfo.content = text;
+          
+          if (fileName.endsWith('.json')) {
+            parsedData = parseJSON(text);
+            toast.info('Parsing JSON file...');
+          } else if (fileName.endsWith('.csv')) {
+            parsedData = parseCSV(text);
+            toast.info('Parsing CSV file...');
+          } else if (fileName.endsWith('.txt') || fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
+            parsedData = parseTextDocument(text);
+            toast.info('Parsing text document...');
+          } else {
+            // Try to auto-detect format
+            try {
+              parsedData = parseJSON(text);
+              toast.info('Auto-detected JSON format');
+            } catch {
+              const csvData = parseCSV(text);
+              if (csvData.length > 0) {
+                parsedData = csvData;
+                toast.info('Auto-detected CSV format');
+              } else {
+                parsedData = parseTextDocument(text);
+                toast.info('Parsing as text document');
+              }
+            }
+          }
+        }
         
         setImportedFiles(prev => ({
           ...prev,
           [sectionId]: [...(prev[sectionId] || []), fileInfo]
         }));
-
-        // Determine file format and parse accordingly
-        let parsedData: any[] = [];
-        const fileName = file.name.toLowerCase();
-        
-        if (fileName.endsWith('.json')) {
-          parsedData = parseJSON(text);
-          toast.info('Parsing JSON file...');
-        } else if (fileName.endsWith('.csv')) {
-          parsedData = parseCSV(text);
-          toast.info('Parsing CSV file...');
-        } else if (fileName.endsWith('.txt') || fileName.endsWith('.doc') || fileName.endsWith('.docx')) {
-          parsedData = parseTextDocument(text);
-          toast.info('Parsing text document...');
-        } else {
-          // Try to auto-detect format
-          try {
-            parsedData = parseJSON(text);
-            toast.info('Auto-detected JSON format');
-          } catch {
-            const csvData = parseCSV(text);
-            if (csvData.length > 0) {
-              parsedData = csvData;
-              toast.info('Auto-detected CSV format');
-            } else {
-              parsedData = parseTextDocument(text);
-              toast.info('Parsing as text document');
-            }
-          }
-        }
 
         if (parsedData.length === 0) {
           toast.error('No data found in file. Please check the format.');
@@ -1305,7 +1363,7 @@ export function HomePage({ onLogout }: HomePageProps) {
             }
           }));
           setFacultyData(importedData);
-          toast.success(`${importedData.length} faculty record(s) imported and auto-filled from ${file.name}!`);
+          toast.success(`${importedData.length} faculty record(s) imported for Academic Year ${currentYear} from ${file.name}!`);
         } 
         // Section 7: Student Data
         else if (sectionId === 7) {
@@ -1335,7 +1393,7 @@ export function HomePage({ onLogout }: HomePageProps) {
             }
           }));
           setStudentData(importedData);
-          toast.success(`${importedData.length} student record(s) imported and auto-filled from ${file.name}!`);
+          toast.success(`${importedData.length} student record(s) imported for Academic Year ${currentYear} from ${file.name}!`);
         } 
         // Section 20: Placement Data
         else if (sectionId === 20) {
@@ -1351,7 +1409,7 @@ export function HomePage({ onLogout }: HomePageProps) {
             
             return {
               company: getField(['company', 'organization', 'companyname', 'employer']) || row.company || row.Company || row.companyname || '',
-              package: getField(['package', 'salary', 'ctc', 'compensation']) || row.package || row.Package || row.salary || '',
+              package: String(getField(['package', 'salary', 'ctc', 'compensation']) || row.package || row.Package || row.salary || ''),
               studentsPlaced: parseInt(getField(['studentsplaced', 'placed', 'hired', 'count']) || row.studentsplaced || row.StudentsPlaced || row.placed || '0'),
               type: getField(['type', 'placementtype', 'category', 'mode']) || row.type || row.Type || row.placementtype || 'On-Campus'
             };
@@ -1365,7 +1423,7 @@ export function HomePage({ onLogout }: HomePageProps) {
             }
           }));
           setPlacementData(importedData);
-          toast.success(`${importedData.length} placement record(s) imported and auto-filled from ${file.name}!`);
+          toast.success(`${importedData.length} placement record(s) imported for Academic Year ${currentYear} from ${file.name}!`);
         }
         // Sections 1-4: Fixed data (stored in master)
         else if (sectionId >= 1 && sectionId <= 4) {
@@ -1459,10 +1517,16 @@ export function HomePage({ onLogout }: HomePageProps) {
         toast.error('Error importing file. Please check the file format and try again.');
       }
     };
-    reader.readAsText(file);
+    
+    // Read file based on type
+    if (isExcelFile) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
 
     event.target.value = '';
-  }, []);
+  }, [selectedYear]);
 
   // Data Manipulation Functions
   const addNewRow = useCallback((sectionId: number) => {
@@ -3126,7 +3190,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Card className="p-4">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
-                    {Math.max(...currentPlacementData.map(p => parseInt(p.package.replace(' LPA', '')) || 0))} LPA
+                    {Math.max(...currentPlacementData.map(p => parseInt(String(p.package || '0').replace(' LPA', '')) || 0))} LPA
                   </div>
                   <div className="text-sm text-gray-600">Highest Package</div>
                 </div>
@@ -3169,7 +3233,7 @@ export function HomePage({ onLogout }: HomePageProps) {
                 <TableBody>
                   {sortedFilteredPlacementData.map((placement, index) => {
                     const currentData = editingRow === index && editingRowData ? editingRowData : placement;
-                    const packageValue = parseInt(currentData.package.replace(' LPA', '')) || 0;
+                    const packageValue = parseInt(String(currentData.package || '0').replace(' LPA', '')) || 0;
                     const packageColor = packageValue >= 20 ? 'text-green-600' : packageValue >= 10 ? 'text-blue-600' : 'text-gray-600';
                     
                     return (
@@ -3861,7 +3925,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               </div>
             </DialogTitle>
             <DialogDescription>
-              Manage and view data for {selectedSection?.title}. Import documents (CSV, JSON, TXT, DOC) to auto-fill matching fields, or manually add and edit data. Export anytime to PDF & CSV.
+              Manage and view data for {selectedSection?.title} in Academic Year {selectedYear}. Import documents (Excel, CSV, JSON, TXT, DOC) to auto-fill matching fields, or manually add and edit data. All imports and exports are specific to the selected year.
             </DialogDescription>
           </DialogHeader>
 
@@ -3900,7 +3964,7 @@ export function HomePage({ onLogout }: HomePageProps) {
                 type="button"
               >
                 <Download className="w-4 h-4 mr-2" />
-                Export PDF & CSV
+                Export Excel/PDF/CSV
               </Button>
               <div className="flex items-center gap-1">
                 <Button 

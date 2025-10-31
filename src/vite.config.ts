@@ -1,11 +1,11 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
+// ✅ Correct configuration for Netlify builds
 export default defineConfig({
   plugins: [react()],
-  base: './', // ✅ fixes MIME error on Netlify
+  base: './', // ensures relative paths
   build: {
-    outDir: 'build', // ✅ Netlify detects this easily
+    outDir: 'dist', // Netlify looks for this folder
   },
 })
