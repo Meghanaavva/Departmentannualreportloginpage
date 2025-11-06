@@ -866,7 +866,7 @@ export function HomePage({ onLogout }: HomePageProps) {
   }, [sectionData, allYearData, selectedYear]);
 
   // Download Report Function - Year-specific Annual Report as PDF
-  // FIXED: Download Report with proper formatting and only actual entered data
+  // FIXED: Download Report with all fields showing NA for missing data
   const handleDownloadReport = useCallback(() => {
     // Validation: Check if year is selected
     if (!selectedYear) {
@@ -904,6 +904,9 @@ export function HomePage({ onLogout }: HomePageProps) {
       const totalPhd = facultyData.reduce((sum, f) => sum + f.phd, 0);
       reportContent += `Faculty Strength: ${totalFaculty} members\n`;
       reportContent += `Faculty with Ph.D.: ${totalPhd} (${totalFaculty > 0 ? Math.round((totalPhd/totalFaculty)*100) : 0}%)\n`;
+    } else {
+      reportContent += `Faculty Strength: NA\n`;
+      reportContent += `Faculty with Ph.D.: NA\n`;
     }
     
     // Student Summary
@@ -914,6 +917,10 @@ export function HomePage({ onLogout }: HomePageProps) {
       reportContent += `Student Strength: ${totalStudents} students\n`;
       reportContent += `Intake Capacity: ${totalIntake} seats\n`;
       reportContent += `Occupancy Rate: ${totalIntake > 0 ? Math.round((totalStudents/totalIntake)*100) : 0}%\n`;
+    } else {
+      reportContent += `Student Strength: NA\n`;
+      reportContent += `Intake Capacity: NA\n`;
+      reportContent += `Occupancy Rate: NA\n`;
     }
     
     // Placement Summary
@@ -926,38 +933,38 @@ export function HomePage({ onLogout }: HomePageProps) {
       reportContent += `Students Placed: ${totalPlaced}\n`;
       reportContent += `Average Package: ${avgPackage} LPA\n`;
       reportContent += `Highest Package: ${maxPackage} LPA\n`;
+    } else {
+      reportContent += `Students Placed: NA\n`;
+      reportContent += `Average Package: NA\n`;
+      reportContent += `Highest Package: NA\n`;
     }
     
     reportContent += `\n${'='.repeat(80)}\n\n`;
     
-    // Detailed Sections - Filter to only include sections with data for the selected year
-    const sectionsWithData = sections.filter(section => {
-      // Use the same logic as hasSectionData to ensure consistency
-      return hasSectionData(section.id);
-    });
+    // Detailed Sections - Include ALL sections, showing NA for empty data
+    reportContent += `DETAILED SECTIONS\n\n`;
     
-    reportContent += `Sections with Data: ${sectionsWithData.length}\n\n`;
-    
-    sectionsWithData.forEach((section, index) => {
+    sections.forEach((section, index) => {
       // Section header with proper numbering
       reportContent += `${(index + 1).toString().padStart(2, '0')}. ${section.title.toUpperCase()}\n`;
       reportContent += `${'-'.repeat(80)}\n\n`;
       
-      // Add section-specific data if available
-      if (section.id === 1 && sectionData['master']?.[1]?.schoolName) {
-        const schoolName = sectionData['master'][1].schoolName;
-        reportContent += `School Name: ${schoolName}\n\n`;
-      } else if (section.id === 2 && sectionData['master']?.[2]?.year) {
-        const yearEst = sectionData['master'][2].year;
-        reportContent += `Year of Establishment: ${yearEst}\n\n`;
-      } else if (section.id === 3 && sectionData['master']?.[3]) {
-        const hodData = sectionData['master'][3];
+      // Add section-specific data with NA for missing fields
+      if (section.id === 1) {
+        const data = sectionData['master']?.[1];
+        reportContent += `School Name: ${data?.schoolName || 'NA'}\n`;
+        reportContent += `Location: ${data?.location || 'NA'}\n\n`;
+      } else if (section.id === 2) {
+        const data = sectionData['master']?.[2];
+        reportContent += `Year of Establishment: ${data?.yearOfEstablishment || 'NA'}\n`;
+        reportContent += `History: ${data?.history || 'NA'}\n\n`;
+      } else if (section.id === 3) {
+        const data = sectionData['master']?.[3];
         reportContent += `Head of Department Details:\n\n`;
-        if (hodData.hodName) reportContent += `  Name:          ${hodData.hodName}\n`;
-        if (hodData.email) reportContent += `  Email:         ${hodData.email}\n`;
-        if (hodData.phone) reportContent += `  Phone:         ${hodData.phone}\n`;
-        if (hodData.qualification) reportContent += `  Qualification: ${hodData.qualification}\n`;
-        reportContent += `\n`;
+        reportContent += `  Name:          ${data?.hodName || 'NA'}\n`;
+        reportContent += `  Email:         ${data?.email || 'NA'}\n`;
+        reportContent += `  Phone:         ${data?.phone || 'NA'}\n`;
+        reportContent += `  Qualification: ${data?.qualification || 'NA'}\n\n`;
       } else if (section.id === 4) {
         const curriculumYear = selectedYear === '2023-24' ? '2023' : '2024';
         reportContent += `Programs Offered (Curriculum Revision: ${curriculumYear}):\n\n`;
@@ -992,26 +999,68 @@ export function HomePage({ onLogout }: HomePageProps) {
         reportContent += `  4. Ph.D. in Electronics & Communication Engineering - 3–5 Years\n`;
         reportContent += `  5. Ph.D. in Electrical & Electronics Engineering - 3–5 Years\n`;
         reportContent += `  6. Ph.D. in Mechanical Engineering - 3–5 Years\n\n`;
-      } else if (section.id === 5 && facultyData.length > 0) {
-        reportContent += `Faculty Details:\n\n`;
-        facultyData.forEach((faculty, idx) => {
-          reportContent += `  ${idx + 1}. ${faculty.designation}: ${faculty.count} faculty members (${faculty.phd} with Ph.D.)\n`;
-          reportContent += `     Experience: ${faculty.experience}\n\n`;
-        });
-      } else if (section.id === 7 && studentData.length > 0) {
-        reportContent += `Student Enrollment:\n\n`;
-        studentData.forEach((student, idx) => {
-          const occupancy = Math.round((student.students / student.intake) * 100);
-          reportContent += `  ${idx + 1}. ${student.program} ${student.year}: ${student.students}/${student.intake} students (${occupancy}% occupancy)\n\n`;
-        });
-      } else if (section.id === 20 && placementData.length > 0) {
-        reportContent += `Placement Statistics:\n\n`;
-        placementData.forEach((placement, idx) => {
-          reportContent += `  ${idx + 1}. ${placement.company}: ${placement.studentsPlaced} students placed @ ${placement.package}\n`;
-          reportContent += `     Type: ${placement.type}\n\n`;
-        });
+      } else if (section.id === 5) {
+        if (facultyData.length > 0) {
+          reportContent += `Faculty Details:\n\n`;
+          facultyData.forEach((faculty, idx) => {
+            reportContent += `  ${idx + 1}. Designation: ${faculty.designation || 'NA'}\n`;
+            reportContent += `     Count: ${faculty.count ?? 'NA'}\n`;
+            reportContent += `     Ph.D.: ${faculty.phd ?? 'NA'}\n`;
+            reportContent += `     Experience: ${faculty.experience || 'NA'}\n\n`;
+          });
+        } else {
+          reportContent += `Faculty Details: NA\n\n`;
+        }
+      } else if (section.id === 6) {
+        const data = sectionData[selectedYear]?.[6];
+        if (data && Object.values(data).some(v => v !== null && v !== undefined && v !== '')) {
+          reportContent += `Non-Teaching Staff Details:\n\n`;
+          Object.entries(data).forEach(([key, value]) => {
+            reportContent += `  ${key}: ${value || 'NA'}\n`;
+          });
+          reportContent += `\n`;
+        } else {
+          reportContent += `Non-Teaching Staff Details: NA\n\n`;
+        }
+      } else if (section.id === 7) {
+        if (studentData.length > 0) {
+          reportContent += `Student Enrollment:\n\n`;
+          studentData.forEach((student, idx) => {
+            const occupancy = student.intake > 0 ? Math.round((student.students / student.intake) * 100) : 0;
+            reportContent += `  ${idx + 1}. Program: ${student.program || 'NA'}\n`;
+            reportContent += `     Year: ${student.year || 'NA'}\n`;
+            reportContent += `     Students: ${student.students ?? 'NA'}\n`;
+            reportContent += `     Intake: ${student.intake ?? 'NA'}\n`;
+            reportContent += `     Occupancy: ${occupancy}%\n\n`;
+          });
+        } else {
+          reportContent += `Student Enrollment: NA\n\n`;
+        }
+      } else if (section.id === 20) {
+        if (placementData.length > 0) {
+          reportContent += `Placement Statistics:\n\n`;
+          placementData.forEach((placement, idx) => {
+            reportContent += `  ${idx + 1}. Company: ${placement.company || 'NA'}\n`;
+            reportContent += `     Package: ${placement.package || 'NA'}\n`;
+            reportContent += `     Students Placed: ${placement.studentsPlaced ?? 'NA'}\n`;
+            reportContent += `     Type: ${placement.type || 'NA'}\n\n`;
+          });
+        } else {
+          reportContent += `Placement Statistics: NA\n\n`;
+        }
       } else {
-        reportContent += `  [Data to be filled]\n\n`;
+        // For sections 8-19, 21-24, check sectionData
+        const data = sectionData[selectedYear]?.[section.id];
+        if (data && Object.values(data).some(v => v !== null && v !== undefined && v !== '')) {
+          reportContent += `Section Data:\n\n`;
+          Object.entries(data).forEach(([key, value]) => {
+            const formattedKey = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            reportContent += `  ${formattedKey}: ${value || 'NA'}\n`;
+          });
+          reportContent += `\n`;
+        } else {
+          reportContent += `Data: NA\n\n`;
+        }
       }
       
       // Add separator line after each section
@@ -1032,7 +1081,7 @@ export function HomePage({ onLogout }: HomePageProps) {
       toast.success(`Annual Report ${selectedYear} prepared for PDF download!`);
     }, 1000);
     
-  }, [selectedYear, allYearData, sections, generatePDF, sectionData, hasSectionData]);
+  }, [selectedYear, allYearData, sections, generatePDF, sectionData]);
 
   // All Button Functions
   const handleHome = useCallback(() => {
