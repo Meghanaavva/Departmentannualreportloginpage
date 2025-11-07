@@ -147,6 +147,10 @@ export function HomePage({ onLogout }: HomePageProps) {
   // Track original data for change detection
   const [originalSectionData, setOriginalSectionData] = useState<{[year: string]: {[sectionId: number]: SectionTextData}}>({});
   
+  // State for section selection dialog
+  const [showSectionSelectDialog, setShowSectionSelectDialog] = useState(false);
+  const [selectedSectionsForDownload, setSelectedSectionsForDownload] = useState<{[key: number]: boolean}>({});
+  
   // New state for section-specific text data (for sections 1-4, 8-19, 21-24)
   const [sectionData, setSectionData] = useState<{[year: string]: {[sectionId: number]: SectionTextData}}>({
     'master': {
@@ -291,6 +295,15 @@ export function HomePage({ onLogout }: HomePageProps) {
       });
     }
   }, [selectedYear, allYearData]);
+
+  // Initialize all sections as selected for download
+  useEffect(() => {
+    const initialSelection: {[key: number]: boolean} = {};
+    sections.forEach(section => {
+      initialSelection[section.id] = true; // All sections selected by default
+    });
+    setSelectedSectionsForDownload(initialSelection);
+  }, []);
 
   // Handle year change for specific section - now updates global year
   const handleSectionYearChange = useCallback((sectionId: number, year: string) => {
@@ -874,8 +887,19 @@ export function HomePage({ onLogout }: HomePageProps) {
       return;
     }
 
+    // Filter selected sections only
+    const sectionsToInclude = sections.filter(section => selectedSectionsForDownload[section.id]);
+    
+    if (sectionsToInclude.length === 0) {
+      toast.error('Please select at least one section to include in the report.');
+      return;
+    }
+
+    // Close the dialog
+    setShowSectionSelectDialog(false);
+
     // Show download progress toast
-    toast.info(`Annual Report ${selectedYear} is downloading...`);
+    toast.info(`Generating Annual Report ${selectedYear} with ${sectionsToInclude.length} section(s)...`);
 
     // Get data for the selected year
     const yearData = allYearData[selectedYear];
@@ -895,7 +919,7 @@ export function HomePage({ onLogout }: HomePageProps) {
     reportContent += `Academic Year: ${selectedYear}\n`;
     reportContent += `Department: Computer Science and Engineering\n`;
     reportContent += `Report Generated: ${new Date().toLocaleDateString()}\n`;
-    reportContent += `Total Report Sections: ${sections.length}\n\n`;
+    reportContent += `Total Report Sections: ${sectionsToInclude.length}\n\n`;
     
     // Faculty Summary
     const facultyData = yearData?.faculty || [];
@@ -941,10 +965,10 @@ export function HomePage({ onLogout }: HomePageProps) {
     
     reportContent += `\n${'='.repeat(80)}\n\n`;
     
-    // Detailed Sections - Include ALL sections, showing NA for empty data
+    // Detailed Sections - Include ONLY selected sections
     reportContent += `DETAILED SECTIONS\n\n`;
     
-    sections.forEach((section, index) => {
+    sectionsToInclude.forEach((section, index) => {
       // Section header with proper numbering
       reportContent += `${(index + 1).toString().padStart(2, '0')}. ${section.title.toUpperCase()}\n`;
       reportContent += `${'-'.repeat(80)}\n\n`;
@@ -1081,7 +1105,7 @@ export function HomePage({ onLogout }: HomePageProps) {
       toast.success(`Annual Report ${selectedYear} prepared for PDF download!`);
     }, 1000);
     
-  }, [selectedYear, allYearData, sections, generatePDF, sectionData]);
+  }, [selectedYear, allYearData, sections, generatePDF, sectionData, selectedSectionsForDownload]);
 
   // All Button Functions
   const handleHome = useCallback(() => {
@@ -1198,6 +1222,28 @@ export function HomePage({ onLogout }: HomePageProps) {
       toast.info(`${files.length} files imported. Click on a specific file to view.`);
     }
   }, [importedFiles]);
+
+  // Handle opening section selection dialog
+  const handleOpenSectionSelectDialog = useCallback(() => {
+    setShowSectionSelectDialog(true);
+  }, []);
+
+  // Toggle individual section selection
+  const toggleSectionSelection = useCallback((sectionId: number) => {
+    setSelectedSectionsForDownload(prev => ({
+      ...prev,
+      [sectionId]: !prev[sectionId]
+    }));
+  }, []);
+
+  // Toggle all sections at once
+  const toggleAllSections = useCallback((selectAll: boolean) => {
+    const newSelection: {[key: number]: boolean} = {};
+    sections.forEach(section => {
+      newSelection[section.id] = selectAll;
+    });
+    setSelectedSectionsForDownload(newSelection);
+  }, []);
 
   // CSV Parser Helper Function
   const parseCSV = (text: string): any[] => {
@@ -2265,7 +2311,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(4, sectionData['master']?.[4] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2392,23 +2438,23 @@ export function HomePage({ onLogout }: HomePageProps) {
                       <div className="flex items-center gap-2">
                         {editingRow === index ? (
                           <>
-                            <Button size="sm" onClick={() => saveEdit(section.id, index)} type="button">
+                            <Button size="sm" onClick={() => saveEdit(section.id, index)} type="button" className="hover:opacity-90 hover:shadow-sm transition-all">
                               <Save className="w-3 h-3" />
                             </Button>
-                            <Button size="sm" variant="outline" onClick={cancelEdit} type="button">
+                            <Button size="sm" variant="outline" onClick={cancelEdit} type="button" className="hover:bg-gray-100 hover:shadow-sm transition-all">
                               <X className="w-3 h-3" />
                             </Button>
                           </>
                         ) : (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => startEdit(index, section.id)} type="button">
+                            <Button size="sm" variant="outline" onClick={() => startEdit(index, section.id)} type="button" className="hover:bg-gray-100 hover:shadow-sm transition-all">
                               <Edit className="w-3 h-3" />
                             </Button>
                             <Button 
                               size="sm" 
                               variant="outline" 
                               onClick={() => confirmDelete(section.id, index)}
-                              className="text-red-600 hover:text-red-700"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 hover:border-red-300 hover:shadow-sm transition-all"
                               type="button"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -2426,7 +2472,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(5, sectionData[selectedYear]?.[5] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2467,7 +2513,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(6, sectionData[selectedYear]?.[6] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2635,7 +2681,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 onClick={() => addNewRow(section.id)}
                 style={{ backgroundColor: primaryColor }}
-                className="text-white"
+                className="text-white hover:opacity-90 hover:shadow-md transition-all"
                 type="button"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -2647,7 +2693,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(7, sectionData[selectedYear]?.[7] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2688,7 +2734,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(8, sectionData[selectedYear]?.[8] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2729,7 +2775,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(9, sectionData[selectedYear]?.[9] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2767,7 +2813,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(10, sectionData[selectedYear]?.[10] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2805,7 +2851,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(11, sectionData[selectedYear]?.[11] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2848,7 +2894,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(12, sectionData[selectedYear]?.[12] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2891,7 +2937,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(13, sectionData[selectedYear]?.[13] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -2961,7 +3007,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(14, sectionData[selectedYear]?.[14] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -3002,7 +3048,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(15, sectionData[selectedYear]?.[15] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -3066,7 +3112,7 @@ export function HomePage({ onLogout }: HomePageProps) {
           <div className="flex justify-end pt-4 border-t">
             <Button 
               style={{ backgroundColor: primaryColor }} 
-              className="text-white"
+              className="text-white hover:opacity-90 hover:shadow-md transition-all"
               onClick={() => saveSectionData(16, sectionData[selectedYear]?.[16] || {})}
             >
               <Save className="w-4 h-4 mr-2" />
@@ -3637,7 +3683,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1"
+                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1 hover:bg-gray-100 hover:shadow-sm transition-all"
                 onClick={handleHome}
                 type="button"
               >
@@ -3648,7 +3694,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1"
+                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1 hover:bg-gray-100 hover:shadow-sm transition-all"
                 onClick={handleRefreshData}
                 type="button"
               >
@@ -3659,7 +3705,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1"
+                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1 hover:bg-gray-100 hover:shadow-sm transition-all"
                 onClick={handleNotifications}
                 type="button"
               >
@@ -3694,7 +3740,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1"
+                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1 hover:bg-gray-100 hover:shadow-sm transition-all"
                 onClick={() => setIsSettingsOpen(true)}
                 type="button"
               >
@@ -3705,7 +3751,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1"
+                className="border-gray-300 flex-shrink-0 text-xs px-2 py-1 hover:bg-gray-100 hover:shadow-sm transition-all"
                 onClick={handleHelp}
                 type="button"
               >
@@ -3717,7 +3763,7 @@ export function HomePage({ onLogout }: HomePageProps) {
                 variant="outline"
                 size="sm"
                 onClick={onLogout}
-                className="text-red-600 border-red-200 flex-shrink-0 text-xs px-2 py-1"
+                className="text-red-600 border-red-200 flex-shrink-0 text-xs px-2 py-1 hover:bg-red-50 hover:border-red-300 hover:shadow-sm transition-all"
                 type="button"
               >
                 <LogOut className="w-3 h-3 mr-1" />
@@ -3800,11 +3846,11 @@ export function HomePage({ onLogout }: HomePageProps) {
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 mb-8">
-              <Button variant="outline" onClick={handlePrint} type="button">
+              <Button variant="outline" onClick={handlePrint} type="button" className="hover:bg-gray-100 hover:shadow-md transition-all">
                 <Printer className="w-4 h-4 mr-2" />
                 Print Report
               </Button>
-              <Button variant="outline" onClick={handleDownloadReport} type="button">
+              <Button variant="outline" onClick={handleOpenSectionSelectDialog} type="button" className="hover:bg-gray-100 hover:shadow-md transition-all">
                 <Download className="w-4 h-4 mr-2" />
                 Download Report
               </Button>
@@ -3966,7 +4012,7 @@ export function HomePage({ onLogout }: HomePageProps) {
                   size="sm" 
                   variant="outline" 
                   onClick={() => setIsModalMaximized(!isModalMaximized)}
-                  className="border-gray-300"
+                  className="border-gray-300 hover:bg-gray-100 hover:shadow-sm transition-all"
                   type="button"
                 >
                   {isModalMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -3990,13 +4036,13 @@ export function HomePage({ onLogout }: HomePageProps) {
                 />
               </div>
               {filterText && (
-                <Button size="sm" variant="outline" className="border-gray-300 h-8" onClick={clearFilter} type="button">
+                <Button size="sm" variant="outline" className="border-gray-300 h-8 hover:bg-gray-100 hover:shadow-sm transition-all" onClick={clearFilter} type="button">
                   <FilterX className="w-3 h-3 mr-1" />
                   Clear
                 </Button>
               )}
               {sortConfig && (
-                <Button size="sm" variant="outline" className="border-gray-300 h-8" onClick={clearSort} type="button">
+                <Button size="sm" variant="outline" className="border-gray-300 h-8 hover:bg-gray-100 hover:shadow-sm transition-all" onClick={clearSort} type="button">
                   <ArrowUpDown className="w-3 h-3 mr-1" />
                   Clear Sort
                 </Button>
@@ -4008,7 +4054,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="border-gray-300"
+                className="border-gray-300 hover:bg-gray-100 hover:shadow-md transition-all"
                 onClick={() => selectedSection && handleExportExcel(selectedSection.id)}
                 type="button"
               >
@@ -4019,7 +4065,7 @@ export function HomePage({ onLogout }: HomePageProps) {
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="border-gray-300"
+                  className="border-gray-300 hover:bg-gray-100 hover:shadow-md transition-all"
                   onClick={() => selectedSection && handleImportDocument(selectedSection.id)}
                   type="button"
                 >
@@ -4037,7 +4083,7 @@ export function HomePage({ onLogout }: HomePageProps) {
               </div>
               <Button 
                 size="sm" 
-                className="text-white" 
+                className="text-white hover:opacity-90 hover:shadow-md transition-all" 
                 style={{ backgroundColor: primaryColor, borderRadius: '8px' }}
                 onClick={() => selectedSection && addNewRow(selectedSection.id)}
                 type="button"
@@ -4285,6 +4331,160 @@ export function HomePage({ onLogout }: HomePageProps) {
               </div>
             </div>
           </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Section Selector Dialog for Download */}
+      <Dialog open={showSectionSelectDialog} onOpenChange={setShowSectionSelectDialog}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <Filter className="w-6 h-6" style={{ color: primaryColor }} />
+              Select Sections for Download
+            </DialogTitle>
+            <DialogDescription>
+              Choose which sections you want to include in the Annual Report {selectedYear}. You must select at least one section.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {/* Download Action Button - Positioned at Top */}
+          <div className="flex justify-between items-center gap-3 px-6 py-4 border-y bg-gradient-to-r from-blue-50 to-indigo-50">
+            <p className="text-sm text-gray-700">
+              <strong>{Object.values(selectedSectionsForDownload).filter(Boolean).length}</strong> of <strong>{sections.length}</strong> sections selected for download
+            </p>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setShowSectionSelectDialog(false)}
+                className="hover:bg-white hover:shadow-sm transition-all"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleDownloadReport}
+                className="hover:shadow-lg transition-all"
+                style={{ backgroundColor: primaryColor, color: 'white' }}
+                disabled={Object.values(selectedSectionsForDownload).filter(Boolean).length === 0}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download Report
+              </Button>
+            </div>
+          </div>
+          
+          <div className="space-y-4 py-4">
+            {/* Select/Deselect All Buttons */}
+            <div className="flex gap-3 pb-4 border-b">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => toggleAllSections(true)}
+                className="flex-1 hover:bg-gray-100 hover:shadow-sm transition-all"
+              >
+                <CheckCircle className="w-4 h-4 mr-2" />
+                Select All
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => toggleAllSections(false)}
+                className="flex-1 hover:bg-gray-100 hover:shadow-sm transition-all"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Deselect All
+              </Button>
+            </div>
+
+            {/* Section List with Checkboxes */}
+            <ScrollArea className="max-h-[450px] pr-4">
+              <div className="space-y-2">
+                {sections.map((section) => {
+                  const Icon = section.icon;
+                  const hasData = hasSectionData(section.id);
+                  const isSelected = selectedSectionsForDownload[section.id];
+                  
+                  return (
+                    <div
+                      key={section.id}
+                      onClick={() => toggleSectionSelection(section.id)}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                        isSelected 
+                          ? 'border-2 bg-blue-50' 
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      style={{
+                        borderColor: isSelected ? primaryColor : undefined,
+                        backgroundColor: isSelected ? `${primaryColor}08` : undefined
+                      }}
+                    >
+                      {/* Checkbox */}
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                        isSelected ? 'bg-white' : 'bg-white'
+                      }`} style={{
+                        borderColor: isSelected ? primaryColor : '#ccc'
+                      }}>
+                        {isSelected && (
+                          <CheckCircle className="w-4 h-4" style={{ color: primaryColor }} />
+                        )}
+                      </div>
+                      
+                      {/* Section Icon */}
+                      <div className="p-2 rounded-lg flex-shrink-0" style={{ 
+                        backgroundColor: `${section.color}15`
+                      }}>
+                        <Icon className="w-5 h-5" style={{ color: section.color }} />
+                      </div>
+                      
+                      {/* Section Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-sm truncate">{section.title}</p>
+                          {hasData && (
+                            <div className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0" title="Has data" />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 truncate">{section.description}</p>
+                      </div>
+                      
+                      {/* Section Number Badge */}
+                      <div className="flex-shrink-0">
+                        <Badge variant="outline" className="text-xs">
+                          #{section.id}
+                        </Badge>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+            
+            {/* Selected Count */}
+            <div className="pt-4 border-t">
+              <p className="text-sm text-gray-600">
+                <strong>{Object.values(selectedSectionsForDownload).filter(Boolean).length}</strong> of <strong>{sections.length}</strong> sections selected
+              </p>
+            </div>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setShowSectionSelectDialog(false)}
+              className="hover:bg-gray-100 hover:shadow-sm transition-all"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDownloadReport}
+              className="hover:shadow-md transition-all"
+              style={{ backgroundColor: primaryColor, color: 'white' }}
+              disabled={Object.values(selectedSectionsForDownload).filter(Boolean).length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Selected Sections
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
