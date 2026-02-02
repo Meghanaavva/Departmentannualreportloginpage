@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from './components/ui/button';
+import React, { useState, useEffect, useCallback } from 'react';
+import { toast } from 'sonner@2.0.3';
+import gitamLogo from 'figma:asset/62cd1281590bd025c42dd0d9ba168416a5db4c22.png';
+import { HomePage } from './components/HomePage';
+import { Card } from './components/ui/card';
 import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
-import { Card } from './components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './components/ui/dialog';
-import { RefreshCw, Mail, Phone, HelpCircle, Shield } from 'lucide-react';
-import { HomePage } from './components/HomePage';
-import { toast } from 'sonner@2.0.3';
-import gitamLogo from 'figma:asset/962159bb4aae7f88a8c7a3bbc3b8fa9fa3bd0e9d.png';
+import { Button } from './components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
+import { RefreshCw, Shield, HelpCircle, Mail, Phone } from 'lucide-react';
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);

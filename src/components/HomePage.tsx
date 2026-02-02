@@ -58,7 +58,7 @@ import {
   Info
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import gitamLogo from 'figma:asset/962159bb4aae7f88a8c7a3bbc3b8fa9fa3bd0e9d.png';
+import gitamLogo from 'figma:asset/9aee21083163571dfacd576ddf42ac2cbee38987.png';
 
 interface HomePageProps {
   onLogout: () => void;
@@ -1767,6 +1767,18 @@ export function HomePage({ onLogout }: HomePageProps) {
     }));
   }, []);
   
+  // Handle row selection for highlighting
+  const handleRowClick = useCallback((sectionId: number, rowIndex: number) => {
+    // Toggle selection - if same row is clicked, deselect it
+    if (selectedRowIndex === rowIndex && selectedRowSection === sectionId) {
+      setSelectedRowIndex(null);
+      setSelectedRowSection(null);
+    } else {
+      setSelectedRowIndex(rowIndex);
+      setSelectedRowSection(sectionId);
+    }
+  }, [selectedRowIndex, selectedRowSection]);
+  
   // Save section text data
   const saveSectionData = useCallback((sectionId: number, data: SectionTextData) => {
     // For sections 1-4, save to a 'master' entry that's shared across all years
@@ -2382,7 +2394,15 @@ export function HomePage({ onLogout }: HomePageProps) {
               </TableHeader>
               <TableBody>
                 {sortedFilteredFacultyData.map((faculty, index) => (
-                  <TableRow key={index} className="hover:bg-gray-50">
+                  <TableRow 
+                    key={index} 
+                    className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                      selectedRowIndex === index && selectedRowSection === section.id
+                        ? 'bg-blue-50 border-l-4 border-blue-500'
+                        : ''
+                    }`}
+                    onClick={() => handleRowClick(section.id, index)}
+                  >
                     <TableCell className="font-medium">
                       {editingRow === index ? (
                         <Input 
@@ -2578,7 +2598,15 @@ export function HomePage({ onLogout }: HomePageProps) {
                     const occupancyColor = occupancyRate >= 90 ? 'text-green-600' : occupancyRate >= 70 ? 'text-yellow-600' : 'text-red-600';
                     
                     return (
-                      <TableRow key={index} className="hover:bg-gray-50">
+                      <TableRow 
+                        key={index} 
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                          selectedRowIndex === index && selectedRowSection === section.id
+                            ? 'bg-blue-50 border-l-4 border-blue-500'
+                            : ''
+                        }`}
+                        onClick={() => handleRowClick(section.id, index)}
+                      >
                         <TableCell className="font-medium">
                           {editingRow === index ? (
                             <Input 
@@ -3332,7 +3360,15 @@ export function HomePage({ onLogout }: HomePageProps) {
                     const packageColor = packageValue >= 20 ? 'text-green-600' : packageValue >= 10 ? 'text-blue-600' : 'text-gray-600';
                     
                     return (
-                      <TableRow key={index} className="hover:bg-gray-50">
+                      <TableRow 
+                        key={index} 
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                          selectedRowIndex === index && selectedRowSection === section.id
+                            ? 'bg-blue-50 border-l-4 border-blue-500'
+                            : ''
+                        }`}
+                        onClick={() => handleRowClick(section.id, index)}
+                      >
                         <TableCell className="font-medium">
                           {editingRow === index ? (
                             <Input 
